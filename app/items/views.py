@@ -1,16 +1,18 @@
+from datetime import timedelta
+
 from fastapi import HTTPException, APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.items.database import get_db
 from app.items.models import User
-from app.items.schemas import CreateUser, UserResponse, UserLogin
-from app.items.security import hash_password, verify_password
+from app.items.schemas import CreateUser, UserResponse, UserLogin, Token
+from app.items.security import hash_password, verify_password, get_current_user, create_access_token, ACCESS_TOKEN_EXPRIE_MINUTES
 
-router = APIRouter(prefix='/api')
+public_router = APIRouter(prefix='/users')
 
 
-@router.post('/users', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@public_router.post('/create/', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user_in: CreateUser, db: AsyncSession = Depends(get_db)):
     # 1. pydantic has already validated password and other fields through CreateUser schema
 
@@ -38,48 +40,33 @@ async def create_user(user_in: CreateUser, db: AsyncSession = Depends(get_db)):
     return new_db_user
 
 
-@router.get('/users/{user_id}', response_model=UserResponse, status_code=status.HTTP_200_OK)
-async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    # get user from db
-    result = await db.execute(select(User).where(User.id == user_id))
-    # get db user from result
-    db_user = result.scalars().first()  # type:ignore
-    # check if user exsists
-    if not db_user:
-        raise HTTPException(
-            status_code=404,
-            detail="This user does not exist."
-        )
-    return db_user
-
-
-@router.post('/users/login', response_model=UserResponse, status_code=status.HTTP_200_OK)
+@public_router.post('/login/', response_model=Token, status_code=status.HTTP_200_OK)
 async def login_user(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
     """Login view"""
     result = await db.execute(select(User).where(User.email == user_in.email))
     db_user = result.scalars().first()
-    if not db_user:
-        raise HTTPException(status_code=401, detail="Wrong Credentials")
-    db_hashed_password = db_user.hashed_password
-    if not verify_password(user_in.password.get_secret_value(), db_hashed_password):
-        raise HTTPException(status_code=401, detail="Wrong Credentials")
-    return db_user
+    if not db_user or not verify_password(user_in.password.get_secret_value(), db_user.hashed_password):
+        raise HTTPException(
+            status_code=401, detail="Incorrect username or password")
+
+    # generate token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPRIE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(db_user.id)}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
-# @router.post('/update-counter', status_code=200)
-# async def update_counter(user: UpdateRate, db: AsyncSession = Depends(get_db)):
-#     """Update counter """
-#     result = await db.execute(select(User).where(User.email == user.email))
-#     db_user = result.scalars().first()
-#     if not db_user:
-#         raise HTTPException(status_code=401, detail="wrong credentials")
-#     if db_user.counter >= db_user.rate_limit:
-#         raise HTTPException(status_code=249, detail="Too many request")
-#     db_user.counter += 1
-#     await db.commit()
-#     await db.refresh(db_user)
-#     return {
-#         "status": "success",
-#         "current_counter": db_user.counter,
-#         "max_allowed": db_user.rate_limit
-#     }
+authenticated_router = APIRouter(
+    prefix="/users", dependencies=[Depends(get_current_user)])
+
+
+@authenticated_router.get('/users/get-user', response_model=UserResponse, status_code=status.HTTP_200_OK)
+async def get_user(user_id: int, user: User = Depends(get_current_user)):
+    # check if user exsists
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="This user does not exist."
+        )
+    return user

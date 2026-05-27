@@ -1,10 +1,14 @@
-from fastapi import FastAPI
-from app.items.views import router
+from fastapi import FastAPI, APIRouter
+from app.items.views import authenticated_router, public_router
 
 
 app = FastAPI()
 
-app.include_router(router)
+api_router = APIRouter(prefix='/api')
+api_router.include_router(public_router)
+api_router.include_router(authenticated_router)
+
+app.include_router(api_router)
 
 
 @app.get("/")

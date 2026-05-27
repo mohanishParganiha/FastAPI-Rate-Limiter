@@ -35,3 +35,8 @@ class UserResponse(UserBase):
 class UserLogin(BaseModel):
     email: EmailStr
     password: SecretStr = Field(..., min_length=8, max_length=100)
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
