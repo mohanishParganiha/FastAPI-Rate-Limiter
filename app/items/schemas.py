@@ -40,3 +40,15 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class RateCountResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    count: int
+
+
+class RateCountBase(RateCountResponse):
+    id: int
+    count: int
+    limit: int
+    last_reset_at: int
