@@ -1,12 +1,8 @@
 from typing import Optional, Any
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
-from pathlib import Path
 import os
 
-from dotenv import load_dotenv
-
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 # Using the asyncpg driver for high-performance async connections
 DATABASE_URL = os.environ.get("DATABASE_URL")

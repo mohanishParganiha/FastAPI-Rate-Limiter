@@ -5,10 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.items.database import get_db
-from app.items.models import User, RateCount
-from app.items.schemas import CreateUser, UserResponse, UserLogin, Token, RateCountResponse
+from app.items.models import User
+from app.items.schemas import CreateUser, UserResponse, UserLogin, Token
 from app.items.security import hash_password, verify_password, get_current_user, create_access_token, ACCESS_TOKEN_EXPRIE_MINUTES
-
+from app.items.redis_dependencies import redis_rate_limiter
 public_router = APIRouter(prefix='/users')
 
 
@@ -67,35 +67,10 @@ async def get_user(user_id: int, user: User = Depends(get_current_user)):
     return user
 
 
-TIME_WINDOW_SIZE = 1  # 1 minute
-
-
-@authenticated_router.post('/update/count', response_model=RateCountResponse)
-async def update_count(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RateCount).where(RateCount.id == user.id))
-    user_rate_obj = result.scalars().first()
-
-    now = datetime.now(timezone.utc)
-    if user_rate_obj:
-        if now <= user_rate_obj.last_reset_at + timedelta(minutes=TIME_WINDOW_SIZE):
-            if user_rate_obj.count + 1 > user_rate_obj.limit:
-                raise HTTPException(
-                    status_code=429,
-                    detail="Too many requests"
-                )
-            user_rate_obj.count += 1
-        else:
-            user_rate_obj.last_reset_at = now
-            user_rate_obj.count = 1
-
-    else:
-        user_rate_obj = RateCount(
-            id=user.id,
-            count=1,
-            limit=5,
-            last_reset_at=now
-        )
-        db.add(user_rate_obj)
-    await db.commit()
-    await db.refresh(user_rate_obj)
-    return user_rate_obj
+@authenticated_router.post('/update/count')
+async def check_rate_limiter(user: User = Depends(redis_rate_limiter)):
+    return {
+        "status": "Success",
+        "user_id": user.id,
+        "message": "hello from lightning fast redis rate limiter!"
+    }

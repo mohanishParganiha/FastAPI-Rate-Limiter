@@ -13,7 +13,11 @@ from alembic import context
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+db_url = getenv("DATABASE_URL")
+if not db_url:
+    load_dotenv()
+    db_url = getenv("DATABASE_URL")
 
 
 # this is the Alembic Config object, which provides
@@ -21,7 +25,6 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 config = context.config
 
 # read from system environment variable
-db_url = getenv("DATABASE_URL")
 if not db_url:
     raise RuntimeError(
         "DATABASE_URL environment variable is required for Alembic migrations. "
