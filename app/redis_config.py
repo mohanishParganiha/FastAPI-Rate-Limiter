@@ -1,9 +1,9 @@
 import redis.asyncio as aioredis
 from typing import AsyncGenerator
 import os
-
+from app.config import settings
 # replace this with actual redis url in production
-REDIS_URL = os.environ.get('REDIS_URL', "redis://localhost:6379/0")
+REDIS_URL = settings.REDIS_URL
 
 
 async def get_redis() -> AsyncGenerator[aioredis.Redis, None]:

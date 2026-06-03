@@ -10,6 +10,7 @@ from app.items.models import User
 import jwt
 from app.items.database import get_db
 import os
+from app.config import settings
 
 # tell passlib to handle bcrypt hashing
 
@@ -30,12 +31,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 # configurations
-SECRET_KEY = os.environ.get(
-    'JWT_SECRET_KEY', 'None')
-if SECRET_KEY == 'None':
-    raise ValueError("NO JWT SECRET KEY PROVIDED IN ENV FILE!!!")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPRIE_MINUTES = 30
+SECRET_KEY = settings.JWT_SECRET
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPRIE_MINUTES = settings.ACCESS_TOKEN_EXPRIE_MINUTES
 
 # Initialize security scheme
 security = HTTPBearer()

@@ -2,15 +2,10 @@ from typing import Optional, Any
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 import os
-
+from app.config import settings
 
 # Using the asyncpg driver for high-performance async connections
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError(
-        "DATABASE_URL environment variable is required. "
-        "Set DATABASE_URL to a valid SQLAlchemy URL before starting the app."
-    )
+DATABASE_URL = settings.DATABASE_URL
 
 # 1. Create the async engine
 engine = create_async_engine(DATABASE_URL, echo=True)

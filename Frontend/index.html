@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rate Limiter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #404040;
+    --surface: #2e2e2e;
+    --surface2: #383838;
+    --border: #1e4070;
+    --border-strong: #2a5a9a;
+    --text: #f0c060;
+    --muted: #a07830;
+    --accent: #f4a900;
+    --accent-dim: #f4a90015;
+    --accent-border: #f4a90050;
+    --amber: #f4a900;
+    --amber-bg: #f4a90015;
+    --amber-border: #f4a90050;
+    --danger: #e05555;
+    --danger-bg: #e0555515;
+    --danger-border: #e0555550;
+    --ok: #50b878;
+    --ok-bg: #50b87815;
+    --blue: #3a7abf;
+    --blue-dim: #3a7abf20;
+    --blue-border: #3a7abf60;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1rem;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+
+  header p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    font-family: var(--mono);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px;
+    margin-bottom: 2rem;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 0.55rem 1rem;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tab-btn.active {
+    background: var(--blue-dim);
+    color: var(--amber);
+    border: 1px solid var(--blue-border);
+    font-weight: 500;
+  }
+
+  .panel {
+    display: none;
+    width: 100%;
+    max-width: 480px;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .panel.active { display: flex; }
+
+  label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"] {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input:focus { border-color: var(--blue); }
+
+  .field { display: flex; flex-direction: column; }
+
+  .btn {
+    padding: 0.65rem 1.2rem;
+    border: 1px solid var(--blue-border);
+    border-radius: 5px;
+    background: var(--blue-dim);
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+  }
+
+  .btn:hover { background: #3a7abf30; border-color: var(--blue); }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-amber {
+    border-color: var(--amber-border);
+    background: var(--amber-bg);
+    color: var(--amber);
+  }
+  .btn-amber:hover { background: #f4a90025; border-color: var(--amber); }
+
+  .btn-danger {
+    border-color: var(--danger-border);
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+  .btn-danger:hover { background: #fcd8d8; border-color: var(--danger); }
+
+  .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .log {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.85rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.75;
+    min-height: 80px;
+    max-height: 220px;
+    overflow-y: auto;
+    color: var(--muted);
+  }
+
+  .log .ok  { color: var(--ok); }
+  .log .err { color: var(--danger); }
+  .log .inf { color: var(--amber); }
+
+  .status-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.6rem 0.85rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border-strong);
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .dot.green { background: var(--ok); }
+  .dot.red   { background: var(--danger); }
+
+  .counter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .counter-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.85rem;
+    text-align: center;
+  }
+
+  .counter-card .num {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .counter-card .num.danger { color: var(--danger); }
+  .counter-card .num.amber  { color: var(--amber); }
+
+  .counter-card .lbl {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.25rem 0;
+  }
+
+  .section-title {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>// rate_limiter</h1>
+  <p>FastAPI · Redis · JWT · Postgres</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('register', this)">register</button>
+  <button class="tab-btn" onclick="switchTab('login', this)">login</button>
+  <button class="tab-btn" onclick="switchTab('test', this)">rate test</button>
+</div>
+
+<!-- REGISTER -->
+<div class="panel active" id="panel-register">
+  <div class="field">
+    <label>username</label>
+    <input type="text" id="reg-username" placeholder="john_doe">
+  </div>
+  <div class="field">
+    <label>email</label>
+    <input type="email" id="reg-email" placeholder="john@example.com">
+  </div>
+  <div class="field">
+    <label>password</label>
+    <input type="password" id="reg-password" placeholder="Min 8 chars, 1 number, 1 uppercase">
+  </div>
+  <button class="btn" onclick="register()">create account →</button>
+  <div class="log" id="reg-log">// output will appear here</div>
+</div>
+
+<!-- LOGIN -->
+<div class="panel" id="panel-login">
+  <div class="status-bar">
+    <span class="dot" id="auth-dot"></span>
+    <span id="auth-status" style="flex:1;">not authenticated</span>
+  </div>
+  <div class="field">
+    <label>email</label>
+    <input type="email" id="login-email" placeholder="john@example.com">
+  </div>
+  <div class="field">
+    <label>password</label>
+    <input type="password" id="login-password" placeholder="your password">
+  </div>
+  <div class="btn-row">
+    <button class="btn" id="btn-login" onclick="login()">login →</button>
+    <button class="btn btn-danger" id="btn-logout" onclick="logout()" disabled>logout</button>
+  </div>
+  <div class="log" id="login-log">// output will appear here</div>
+</div>
+
+<!-- RATE TEST -->
+<div class="panel" id="panel-test">
+  <div class="status-bar">
+    <span class="dot" id="test-dot"></span>
+    <span id="test-auth-status">not authenticated — login first</span>
+  </div>
+
+  <div class="counter-grid">
+    <div class="counter-card">
+      <div class="num" id="req-count">0</div>
+      <div class="lbl">requests sent</div>
+    </div>
+    <div class="counter-card">
+      <div class="num ok" id="ok-count" style="color:var(--ok)">0</div>
+      <div class="lbl">200 ok</div>
+    </div>
+    <div class="counter-card">
+      <div class="num danger" id="rate-count">0</div>
+      <div class="lbl">429 blocked</div>
+    </div>
+    <div class="counter-card">
+      <div class="num amber" id="limit-display">10</div>
+      <div class="lbl">limit / min</div>
+    </div>
+  </div>
+
+  <button class="btn" onclick="hitOnce()">send 1 request →</button>
+  <button class="btn btn-amber" onclick="hitBurst(15)">burst: 15 requests →</button>
+  <button class="btn btn-danger" onclick="resetCounters()">reset counters</button>
+
+  <hr class="divider">
+  <span class="section-title">response log</span>
+  <div class="log" id="test-log">// login first, then hit the rate limiter endpoint</div>
+</div>
+
+<script>
+const BASE = 'http://localhost:8000/api';
+let token = localStorage.getItem('rl_token') || null;
+
+function log(id, msg, type='inf') {
+  const el = document.getElementById(id);
+  const line = document.createElement('div');
+  line.className = type;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  btn.classList.add('active');
+  updateAuthStatus();
+}
+
+function updateAuthStatus() {
+  const authed = !!token;
+
+  const dot1 = document.getElementById('auth-dot');
+  const dot2 = document.getElementById('test-dot');
+  if (dot1) dot1.className = 'dot ' + (authed ? 'green' : 'red');
+  if (dot2) dot2.className = 'dot ' + (authed ? 'green' : 'red');
+
+  const s1 = document.getElementById('auth-status');
+  const s2 = document.getElementById('test-auth-status');
+  if (s1) s1.textContent = authed ? 'authenticated' : 'not authenticated';
+  if (s2) s2.textContent = authed ? 'authenticated · ready' : 'not authenticated — login first';
+
+  const btnLogin  = document.getElementById('btn-login');
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogin && btnLogout) {
+    if (authed) {
+      btnLogin.disabled  = true;
+      btnLogout.disabled = false;
+    } else {
+      btnLogin.disabled  = false;
+      btnLogout.disabled = true;
+    }
+  }
+}
+
+async function register() {
+  const username = document.getElementById('reg-username').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  if (!username || !email || !password) { log('reg-log', 'fill all fields', 'err'); return; }
+
+  log('reg-log', 'POST /api/users/create/ ...');
+  try {
+    const res  = await fetch(`${BASE}/users/create/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      log('reg-log', `201 created — id: ${data.id}  email: ${data.email}`, 'ok');
+    } else {
+      log('reg-log', `${res.status} — ${JSON.stringify(data.detail)}`, 'err');
+    }
+  } catch (e) {
+    log('reg-log', `network error: ${e.message}`, 'err');
+  }
+}
+
+async function login() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) { log('login-log', 'fill all fields', 'err'); return; }
+
+  log('login-log', 'POST /api/users/login/ ...');
+  try {
+    const res  = await fetch(`${BASE}/users/login/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      token = data.access_token;
+      localStorage.setItem('rl_token', token);
+      log('login-log', '200 ok — JWT stored  token: ••••••••••••••••••••', 'ok');
+      updateAuthStatus();
+    } else {
+      log('login-log', `${res.status} — ${JSON.stringify(data.detail)}`, 'err');
+    }
+  } catch (e) {
+    log('login-log', `network error: ${e.message}`, 'err');
+  }
+}
+
+function logout() {
+  token = null;
+  localStorage.removeItem('rl_token');
+  updateAuthStatus();
+  log('login-log', 'logged out — token cleared', 'inf');
+}
+
+let reqCount = 0, okCount = 0, rateCount = 0;
+
+async function hitOnce() {
+  if (!token) { log('test-log', 'not authenticated — login first', 'err'); return; }
+  reqCount++;
+  document.getElementById('req-count').textContent = reqCount;
+  try {
+    const res  = await fetch(`${BASE}/users/update/count`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      okCount++;
+      document.getElementById('ok-count').textContent = okCount;
+      log('test-log', `200 ok — req #${reqCount} passed`, 'ok');
+    } else if (res.status === 429) {
+      rateCount++;
+      document.getElementById('rate-count').textContent = rateCount;
+      log('test-log', `429 rate limited — req #${reqCount} blocked`, 'err');
+    } else if (res.status === 401) {
+      log('test-log', `401 unauthorized — token expired, re-login`, 'err');
+    } else {
+      log('test-log', `${res.status} — ${JSON.stringify(data)}`, 'err');
+    }
+  } catch (e) {
+    log('test-log', `network error: ${e.message}`, 'err');
+  }
+}
+
+async function hitBurst(n) {
+  if (!token) { log('test-log', 'not authenticated — login first', 'err'); return; }
+  log('test-log', `--- burst: ${n} requests ---`);
+  for (let i = 0; i < n; i++) {
+    await hitOnce();
+    await new Promise(r => setTimeout(r, 80));
+  }
+  log('test-log', `--- burst done ---`);
+}
+
+function resetCounters() {
+  reqCount = 0; okCount = 0; rateCount = 0;
+  document.getElementById('req-count').textContent  = 0;
+  document.getElementById('ok-count').textContent   = 0;
+  document.getElementById('rate-count').textContent = 0;
+  log('test-log', 'counters reset (redis window still active)', 'inf');
+}
+
+updateAuthStatus();
+</script>
+</body>
+</html>
