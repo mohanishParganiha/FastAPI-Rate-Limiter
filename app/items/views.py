@@ -8,7 +8,7 @@ from app.items.database import get_db
 from app.items.models import User
 from app.items.schemas import CreateUser, UserResponse, UserLogin, Token
 from app.items.security import hash_password, verify_password, get_current_user, create_access_token, ACCESS_TOKEN_EXPRIE_MINUTES
-from app.items.redis_dependencies import redis_rate_limiter
+from app.items.redis_dependencies import call_rate_limiter_algo
 public_router = APIRouter(prefix='/users')
 
 
@@ -68,7 +68,7 @@ async def get_user(user_id: int, user: User = Depends(get_current_user)):
 
 
 @authenticated_router.post('/update/count')
-async def check_rate_limiter(user: User = Depends(redis_rate_limiter)):
+async def check_rate_limiter(user: User = Depends(call_rate_limiter_algo)):
     return {
         "status": "Success",
         "user_id": user.id,
