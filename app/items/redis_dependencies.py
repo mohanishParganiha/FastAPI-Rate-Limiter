@@ -115,6 +115,7 @@ class TokenBucket(RateLimiter):
         return user
 
 
+# create objects
 fixed_window_obj = FixedWindowAlgo()
 token_bucket_obj = TokenBucket()
 
