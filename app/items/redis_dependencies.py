@@ -115,10 +115,77 @@ class TokenBucket(RateLimiter):
         return user
 
 
+class LeakyBucket(RateLimiter):
+
+    def __init__(self) -> None:
+        self.LEAKY_BUCKET_SIZE = 10.0
+        self.LEAKING_FLOW_RATE = 0.5
+        self.ttl = 60
+
+    async def is_allowed(self, redis: aioredis.Redis, user: User) -> User:
+        now = time.time()
+        redis_key = f"leaky_bucket:{user.id}"
+
+        # 1. Use an async transaction pipeline with WATCH to prevent race conditions
+        async with redis.pipeline(transaction=True) as pipe:
+            try:
+                # Watch the key for changes made by other concurrent requests
+                await pipe.watch(redis_key)
+
+                # Fetch existing data safely
+                key_data = await pipe.hgetall(redis_key)
+
+                if not key_data:
+                    tokens = 0.0
+                else:
+                    # Note: Redis decodes bytes; ensure key keys are strings or decode them
+                    last_leak = float(key_data.get(
+                        b'last_leak_time', key_data.get('last_leak_time', now)))
+                    current_tokens = float(key_data.get(
+                        b'tokens_in_bucket', key_data.get('tokens_in_bucket', 0.0)))
+
+                    time_elapsed = now - last_leak
+                    tokens_left = current_tokens - \
+                        (time_elapsed * self.LEAKING_FLOW_RATE)
+                    tokens = max(tokens_left, 0.0)
+
+                # 2. Check capacity constraints
+                if tokens >= self.LEAKY_BUCKET_SIZE:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=self.too_many_request_error_detail
+                    )
+
+                # 3. Queue atomic write operations
+                pipe.multi()
+                pipe.hset(
+                    name=redis_key,
+                    mapping={
+                        'tokens_in_bucket': tokens + 1.0,
+                        'last_leak_time': now
+                    }
+                )
+                pipe.expire(redis_key, self.ttl)
+
+                # Execute the transaction
+                await pipe.execute()
+
+            except WatchError:
+                # Another concurrent request modified the key during our execution!
+                # Instead of letting it pass, safely treat it as a temporary failure/conflict
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=self.too_many_request_error_detail
+                )
+
+        return user
+
+
 # create objects
 fixed_window_obj = FixedWindowAlgo()
 token_bucket_obj = TokenBucket()
+leaky_bucket_obj = LeakyBucket()
 
 
 async def call_rate_limiter_algo(redis: aioredis.Redis = Depends(get_redis), user: User = Depends(get_current_user)):
-    return await token_bucket_obj.is_allowed(redis=redis, user=user)
+    return await leaky_bucket_obj.is_allowed(redis=redis, user=user)
