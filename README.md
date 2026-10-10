@@ -8,6 +8,8 @@ Install [Docker Desktop](https://www.docker.com/products/docker-desktop/), then 
 
 ```env
 JWT_SECRET=replace-this-with-a-long-random-value
+DATABASE_URL=postgresql+asyncpg://postgres:Change_me_pass@Change_me_DB:5432/FLEET_API
+REDIS_URL="Change_this_to_redis_url"
 POSTGRES_USER=rate_limiter
 POSTGRES_PASSWORD=change-this-password
 POSTGRES_DB=rate_limiter
