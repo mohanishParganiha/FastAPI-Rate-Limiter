@@ -16,11 +16,11 @@ app.include_router(api_router)
 # Configure CORS so your frontend can communicate with your backend
 app.add_middleware(
     CORSMiddleware,
-    # 👈 Change to your specific frontend URL in production
+    # Change to your specific frontend URL in production
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],  # 👈 Allows POST, OPTIONS, GET, etc.
-    allow_headers=["*"],  # 👈 Allows Content-Type, Authorization, etc.
+    allow_methods=["*"],  # Allows POST, OPTIONS, GET, etc.
+    allow_headers=["*"],  # Allows Content-Type, Authorization, etc.
 )
 
 
