@@ -9,14 +9,14 @@ from sqlalchemy.future import select
 from app.items.models import User
 import jwt
 from app.items.database import get_db
-import os
 from app.config import settings
 
 # tell passlib to handle bcrypt hashing
 
 
 def hash_password(password: str) -> str:
-    """Generate a secure , salted bcrypt hash string from plain text password."""
+    """Generate a secure ,
+    salted bcrypt hash string from plain text password."""
     pwd_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
@@ -41,7 +41,8 @@ security = HTTPBearer()
 # helper function
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict,
+                        expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -51,7 +52,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: AsyncSession = Depends(get_db)):
+async def get_current_user(
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+        db: AsyncSession = Depends(get_db)):
     token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

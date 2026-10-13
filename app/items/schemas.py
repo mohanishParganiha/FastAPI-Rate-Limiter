@@ -1,6 +1,5 @@
-from pydantic import BaseModel, EmailStr, SecretStr, Field, field_validator, ConfigDict
-from fastapi import HTTPException, status
-from typing import Optional
+from pydantic import (BaseModel, EmailStr, SecretStr,
+                      Field, field_validator, ConfigDict)
 
 
 class UserBase(BaseModel):

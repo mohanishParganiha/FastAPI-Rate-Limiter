@@ -1,7 +1,6 @@
-from typing import Optional, Any
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import (
+    create_async_engine, async_sessionmaker, AsyncSession)
 from sqlalchemy.orm import DeclarativeBase
-import os
 from app.config import settings
 
 # Using the asyncpg driver for high-performance async connections
@@ -18,7 +17,10 @@ SessionLocal = async_sessionmaker(
 )
 
 
-# 3. Create a Base class that models will inherit from (like Django's models.Model)
+"""3. Create a Base class that models will
+inherit from (like Django's models.Model)"""
+
+
 class Base(DeclarativeBase):
     pass
 

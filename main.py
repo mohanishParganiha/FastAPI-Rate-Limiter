@@ -1,7 +1,5 @@
 from fastapi import FastAPI, APIRouter
 from app.items.views import authenticated_router, public_router
-from pathlib import Path
-from os import getenv
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 

@@ -1,7 +1,6 @@
-from sqlalchemy import String, Boolean, Integer, DateTime
+from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from app.items.database import Base
-from datetime import datetime, timedelta, timezone
 
 
 class User(Base):

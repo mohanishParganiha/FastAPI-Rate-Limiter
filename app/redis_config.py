@@ -1,6 +1,5 @@
 import redis.asyncio as aioredis
 from typing import AsyncGenerator
-import os
 from app.config import settings
 # replace this with actual redis url in production
 REDIS_URL = settings.REDIS_URL
