@@ -1,12 +1,13 @@
 import os
+
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     # Secret keys
     JWT_SECRET: str = os.environ.get("JWT_SECRET", "fallback-secret-for-dev")
-    DATABASE_URL: str = os.environ.get("DATABASE_URL", '')
-    REDIS_URL: str = os.environ.get("REDIS_URL", '')
+    DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
+    REDIS_URL: str = os.environ.get("REDIS_URL", "")
 
     # JWT settings
     ALGORITHM: str = "HS256"
@@ -21,12 +22,12 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:8000",
         "http://127.0.0.1:8000",
-        "https://vercel.app"  # Your future Vercel URL
+        "https://vercel.app",  # Your future Vercel URL
     ]
 
     model_config = {
         "env_file": ".env",
-        "extra": "ignore"  # Filters out Docker database variables
+        "extra": "ignore",  # Filters out Docker database variables
     }
 
 

@@ -1,19 +1,21 @@
-from fastapi import Depends, HTTPException, status
-import redis.asyncio as aioredis
-from redis.asyncio import WatchError
-from app.redis_config import get_redis
-from app.items.security import get_current_user
-from app.items.models import User
-from app.config import settings
-from abc import ABC, abstractmethod
 import time
+from abc import ABC, abstractmethod
+from typing import Annotated
+
+import redis.asyncio as aioredis
+from fastapi import Depends, HTTPException, status
+from redis.asyncio import WatchError
+
+from app.config import settings
+from app.items.models import User
+from app.items.security import get_current_user
+from app.redis_config import get_redis
 
 MAX_REQUEST_PER_MIN = settings.MAX_REQUEST_PER_MIN
 WINDOW_SECONDS = settings.WINDOW_SECONDS
 
 
 class RateLimiter(ABC):
-
     too_many_request_error_detail = "TOO MANY REQUESTS"
 
     @abstractmethod
@@ -22,7 +24,6 @@ class RateLimiter(ABC):
 
 
 class FixedWindowAlgo(RateLimiter):
-
     async def is_allowed(self, redis: aioredis.Redis, user: User) -> User:
 
         # 1create a unique key using the authenticated user's ID
@@ -39,7 +40,7 @@ class FixedWindowAlgo(RateLimiter):
         if current_count > MAX_REQUEST_PER_MIN:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=self.too_many_request_error_detail
+                detail=self.too_many_request_error_detail,
             )
 
         # 5 pass the authenticated user forward to you view
@@ -47,7 +48,6 @@ class FixedWindowAlgo(RateLimiter):
 
 
 class TokenBucket(RateLimiter):
-
     def __init__(self) -> None:
         # 0 set some variables
         self.refil_rate = 0.1666
@@ -80,10 +80,11 @@ class TokenBucket(RateLimiter):
                 # 4 if key is not empty then calcualte toekns for existing user
                 else:
                     token_need_to_fill = (
-                        current_time -
-                        float(key_data['last_updated']))*self.refil_rate
-                    tokens = min(self.max_tokens, float(
-                        key_data['tokens'])+token_need_to_fill)
+                        current_time - float(key_data["last_updated"])
+                    ) * self.refil_rate
+                    tokens = min(
+                        self.max_tokens, float(key_data["tokens"]) + token_need_to_fill
+                    )
 
                 """now check if user has token ,
                 reduce token if user has token then update redis key"""
@@ -91,7 +92,7 @@ class TokenBucket(RateLimiter):
                     # raise exception if user doesnot have tokens
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail=self.too_many_request_error_detail
+                        detail=self.too_many_request_error_detail,
                     )
 
                 # start the transaction
@@ -99,10 +100,7 @@ class TokenBucket(RateLimiter):
 
                 await pipe.hset(
                     name=redis_key,
-                    mapping={
-                        "tokens": tokens-1.0,
-                        "last_updated": current_time
-                    }
+                    mapping={"tokens": tokens - 1.0, "last_updated": current_time},
                 )
                 # set TTL for key expiration
                 await pipe.expire(redis_key, self.ttl)
@@ -113,14 +111,13 @@ class TokenBucket(RateLimiter):
             except WatchError:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=self.too_many_request_error_detail
+                    detail=self.too_many_request_error_detail,
                 )
 
         return user
 
 
 class LeakyBucket(RateLimiter):
-
     def __init__(self) -> None:
         self.LEAKY_BUCKET_SIZE = 10.0
         self.LEAKING_FLOW_RATE = 0.5
@@ -145,33 +142,35 @@ class LeakyBucket(RateLimiter):
                 else:
                     """Note: Redis decodes bytes; ensure
                     keys are strings or decode them"""
-                    last_leak = float(key_data.get(
-                        b'last_leak_time',
-                        key_data.get('last_leak_time', now)))
-                    current_tokens = float(key_data.get(
-                        b'tokens_in_bucket',
-                        key_data.get('tokens_in_bucket', 0.0)))
+                    last_leak = float(
+                        key_data.get(
+                            b"last_leak_time", key_data.get("last_leak_time", now)
+                        )
+                    )
+                    current_tokens = float(
+                        key_data.get(
+                            b"tokens_in_bucket", key_data.get("tokens_in_bucket", 0.0)
+                        )
+                    )
 
                     time_elapsed = now - last_leak
-                    tokens_left = current_tokens - \
-                        (time_elapsed * self.LEAKING_FLOW_RATE)
+                    tokens_left = current_tokens - (
+                        time_elapsed * self.LEAKING_FLOW_RATE
+                    )
                     tokens = max(tokens_left, 0.0)
 
                 # 2. Check capacity constraints
                 if tokens >= self.LEAKY_BUCKET_SIZE:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail=self.too_many_request_error_detail
+                        detail=self.too_many_request_error_detail,
                     )
 
                 # 3. Queue atomic write operations
                 pipe.multi()
                 pipe.hset(
                     name=redis_key,
-                    mapping={
-                        'tokens_in_bucket': tokens + 1.0,
-                        'last_leak_time': now
-                    }
+                    mapping={"tokens_in_bucket": tokens + 1.0, "last_leak_time": now},
                 )
                 pipe.expire(redis_key, self.ttl)
 
@@ -185,7 +184,7 @@ class LeakyBucket(RateLimiter):
                 safely treat it as a temporary failure/conflict"""
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=self.too_many_request_error_detail
+                    detail=self.too_many_request_error_detail,
                 )
 
         return user
@@ -198,6 +197,7 @@ leaky_bucket_obj = LeakyBucket()
 
 
 async def call_rate_limiter_algo(
-        redis: aioredis.Redis = Depends(get_redis),
-        user: User = Depends(get_current_user)):
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+    user: Annotated[User, Depends(get_current_user)],
+):
     return await leaky_bucket_obj.is_allowed(redis=redis, user=user)

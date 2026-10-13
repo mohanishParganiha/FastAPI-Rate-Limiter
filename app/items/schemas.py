@@ -1,5 +1,4 @@
-from pydantic import (BaseModel, EmailStr, SecretStr,
-                      Field, field_validator, ConfigDict)
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, field_validator
 
 
 class UserBase(BaseModel):
@@ -13,15 +12,14 @@ class CreateUser(UserBase):
     # SecretStr hides the text when printed (outputs as '**********')
     password: SecretStr = Field(..., min_length=8, max_length=100)
 
-    @field_validator('password')
+    @field_validator("password")
     @classmethod
     def check_password_strength(cls, v: SecretStr) -> SecretStr:
         password_raw = v.get_secret_value()
         if not any(char.isdigit() for char in password_raw):
             raise ValueError("password must contain at least one number")
         if not any(char.isupper() for char in password_raw):
-            raise ValueError(
-                "password must contain at least one capital letter")
+            raise ValueError("password must contain at least one capital letter")
         return v
 
 

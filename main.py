@@ -5,7 +5,7 @@ from app.config import settings
 
 app = FastAPI()
 
-api_router = APIRouter(prefix='/api')
+api_router = APIRouter(prefix="/api")
 api_router.include_router(public_router)
 api_router.include_router(authenticated_router)
 
